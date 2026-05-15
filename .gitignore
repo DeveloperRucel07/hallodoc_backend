@@ -51,7 +51,8 @@ dmypy.json
 Thumbs.db
 
 .ipynb_checkpoints/
-
+data/chroma_db/*
+data/medicines/*
 *.sqlite3
 *.db
 
