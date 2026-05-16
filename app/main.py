@@ -2,11 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import ollama
-from .prompts.system_promt import promt
+from app.core.config import config
+from app.prompts.system_prompt import system_prompt as promt
+from ollama import Client
 app = FastAPI(title="HalloDOC API")
+client = Client(
+    host=config.OLLAMA_BASE_URL
+)
 
-# Sicherheit: Nur dein Frontend darf zugreifen
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,7 +33,7 @@ class ChatResponse(BaseModel):
 @app.post("/hallodoc/chat/", response_model=ChatResponse)
 async def ai_chat(request: ChatRequest):
     try:
-        result = ollama.chat(model='hallodoc:latest', messages=[
+        result = client.chat(model=config.OLLAMA_MODEL, messages=[
             {
                 'role': 'system',
                 'content': promt

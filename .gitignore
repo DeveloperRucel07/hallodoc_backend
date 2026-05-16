@@ -60,7 +60,7 @@ alembic/versions/__pycache__/
 
 staticfiles/
 media/
-
+testfile.py
 
 docker-compose.override.yml
 

@@ -93,6 +93,7 @@ orjson==3.11.9
 ormsgpack==1.12.2
 overrides==7.7.0
 packaging==26.2
+passlib==1.7.4
 propcache==0.5.2
 protobuf==6.33.6
 pyasn1==0.6.3
@@ -102,6 +103,7 @@ pydantic==2.13.4
 pydantic-settings==2.14.1
 pydantic_core==2.46.4
 Pygments==2.20.0
+PyMuPDF==1.27.2.3
 pypdf==6.11.0
 PyPika==0.51.1
 pyproject_hooks==1.2.0
