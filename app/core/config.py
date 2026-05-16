@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings
 
 
@@ -11,13 +12,35 @@ class Settings(BaseSettings):
 
     PRACTICE_CODE: str = "123456"
 
-    OLLAMA_BASE_URL: str = "http://ollama:11434"
-    OLLAMA_MODEL: str = "llama3.2"
+    # Ollama
+    # Local default → localhost
+    # Docker override in .env → http://host.docker.internal:11434
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "hallodoc:latest"
 
-    CHROMA_DB_PATH: str = "/app/chroma_db"
+    # ChromaDB
+    # Local default → localhost (chroma run --path ./data/chroma_db --port 8000)
+    # Docker override in .env → chromadb
+    CHROMA_HOST: str = "localhost"
+    CHROMA_PORT: int = 8000
+    CHROMA_DB_PATH: str = "./data/chroma_db"
+    CHROMA_TOKEN: str = ""
 
-    class Config:
-        env_file = ".env"
+    COLLECTION_NAME: str = "medical_rag_de"
+    EMBEDDING_MODEL: str = "nomic-embed-text"
+
+    CHUNK_SIZE: int = 200
+    CHUNK_OVERLAP: int = 25
+
+    PDF_DIR: str = "./data/medicines"
+    SCRAPE_DELAY: float = 1.5
+    WEB_SOURCES: list[str] = []
+
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
 
-settings = Settings()
+config = Settings()
