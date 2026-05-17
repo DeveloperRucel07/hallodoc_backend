@@ -76,7 +76,7 @@ coverage.xml
 .pytype/
 
 .cache/
-
+Hallodoc
 tmp/
 temp/
 

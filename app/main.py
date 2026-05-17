@@ -20,33 +20,3 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {"message": "HalloDOC Backend ist online"}
-
-
-class ChatRequest(BaseModel):
-    message: str
-    session_id: str 
-
-class ChatResponse(BaseModel):
-    response: str
-    status: str
-
-@app.post("/hallodoc/chat/", response_model=ChatResponse)
-async def ai_chat(request: ChatRequest):
-    try:
-        result = client.chat(model=config.OLLAMA_MODEL, messages=[
-            {
-                'role': 'system',
-                'content': promt
-            },
-            {
-                'role': 'user',
-                'content': request.message,
-            },
-        ])
-        
-        return ChatResponse(
-            response=result['message']['content'],
-            status="success"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
