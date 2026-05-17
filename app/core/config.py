@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 25
 
     PDF_DIR: str = "./data/medicines"
+    DB_URL: str = "sqlite:///./data/hallodoc.db"
     SCRAPE_DELAY: float = 1.5
     WEB_SOURCES: list[str] = []
 
