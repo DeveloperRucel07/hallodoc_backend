@@ -13,13 +13,10 @@ from typing import Optional
 
 from sqlalchemy.orm import Session as DBSession
 
-from app.chat.models import Message, Session
+from app.models.models import Message, Session
 from app.core.config import config
 from app.ingestion.rag_query import RAGQuery, RAGResponse
 
-
-# ── Urgency keywords ──────────────────────────────────────────────────────────
-# If the AI response contains these, we escalate the session urgency level
 URGENT_KEYWORDS = [
     "notruf", "112", "notfall", "sofort", "lebensbedrohlich",
     "herzinfarkt", "schlaganfall", "bewusstlos", "atemnot",
@@ -43,12 +40,10 @@ class ChatService:
             chroma_token=config.CHROMA_TOKEN,
         )
 
-    # ── Session management ────────────────────────────────────────────────────
-
     def get_or_create_session(
         self,
         db: DBSession,
-        user_id: str,
+        patient_id: str,
         session_id: Optional[str] = None,
     ) -> Session:
         """
@@ -58,39 +53,36 @@ class ChatService:
         if session_id:
             session = db.query(Session).filter(
                 Session.id == session_id,
-                Session.user_id == user_id,
+                Session.patient_id == patient_id,
                 Session.status == "active",
             ).first()
             if session:
                 return session
 
-        # Create new session
-        session = Session(user_id=user_id)
+        session = Session(patient_id=patient_id)
         db.add(session)
         db.commit()
         db.refresh(session)
         return session
 
-    def get_session(self, db: DBSession, session_id: str, user_id: str) -> Optional[Session]:
+    def get_session(self, db: DBSession, session_id: str, patient_id: str) -> Optional[Session]:
         return db.query(Session).filter(
             Session.id == session_id,
-            Session.user_id == user_id,
+            Session.patient_id == patient_id,
         ).first()
 
-    def get_user_sessions(self, db: DBSession, user_id: str) -> list[Session]:
+    def get_user_sessions(self, db: DBSession, patient_id: str) -> list[Session]:
         return (
             db.query(Session)
-            .filter(Session.user_id == user_id)
+            .filter(Session.patient_id == patient_id)
             .order_by(Session.updated_at.desc())
             .all()
         )
 
-    # ── Core chat logic ───────────────────────────────────────────────────────
-
     def chat(
         self,
         db: DBSession,
-        user_id: str,
+        patient_id: str,
         user_message: str,
         session_id: Optional[str] = None,
     ) -> dict:
@@ -104,10 +96,8 @@ class ChatService:
         6. Detect urgency
         7. Return full response
         """
-        # 1. Session
-        session = self.get_or_create_session(db, user_id, session_id)
+        session = self.get_or_create_session(db, patient_id, session_id)
 
-        # 2. Store user message
         user_msg = Message(
             session_id=session.id,
             role="user",
@@ -116,16 +106,13 @@ class ChatService:
         db.add(user_msg)
         db.commit()
 
-        # 3. Build conversation history (last 10 messages for context)
         history = self._build_history(db, session.id)
 
-        # 4. Query RAG with history context
         rag_response: RAGResponse = self.rag.query(
             question=user_message,
             conversation_history=history,
         )
 
-        # 5. Store AI response
         ai_msg = Message(
             session_id=session.id,
             role="assistant",
@@ -134,7 +121,6 @@ class ChatService:
         )
         db.add(ai_msg)
 
-        # 6. Detect urgency and update session
         urgency = self._detect_urgency(rag_response.answer)
         if urgency != "none":
             session.urgency = urgency
@@ -162,7 +148,6 @@ class ChatService:
             db.commit()
         return session
 
-    # ── History builder ───────────────────────────────────────────────────────
 
     def _build_history(self, db: DBSession, session_id: str) -> list[dict]:
         """

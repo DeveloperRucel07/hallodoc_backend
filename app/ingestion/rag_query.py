@@ -5,27 +5,27 @@ from typing import Optional
 
 import chromadb
 from chromadb.config import Settings
+from app.prompts.system_prompt import system_prompt as SYSTEM_PROMPT
 
 
+# SYSTEM_PROMPT = """Du bist ein medizinischer Assistent für das HalloDOC-System.
+# Deine Aufgabe ist es, Patienten auf Basis medizinischer Leitlinien zu informieren.
 
-SYSTEM_PROMPT = """Du bist ein medizinischer Assistent für das HalloDOC-System.
-Deine Aufgabe ist es, Patienten auf Basis medizinischer Leitlinien zu informieren.
+# REGELN:
+# 1. Nutze die bereitgestellten Dokumentenabschnitte als Grundlage deiner Antwort.
+# 2. Fasse die relevanten Informationen aus den Dokumenten zusammen und beantworte
+#    die Frage des Patienten verständlich — auch wenn die Frage nicht wörtlich
+#    im Dokument steht. Schlussfolgerungen aus dem Kontext sind erlaubt.
+# 3. Erfinde KEINE Fakten, Medikamente, Dosierungen oder Diagnosen die nicht
+#    aus den Dokumenten ableitbar sind.
+# 4. Wenn die Dokumente wirklich keine relevanten Informationen enthalten, sage:
+#    "Dazu habe ich leider keine Information in meinen Unterlagen."
+# 5. Bei Notfallsymptomen (Brustschmerz, Lähmung, starke Atemnot) weise auf
+#    den Notruf 112 hin.
+# 6. Schließe jede Antwort mit dem Hinweis ab, dass ein Arzt konsultiert
+#    werden sollte für eine persönliche Diagnose.
 
-REGELN:
-1. Nutze die bereitgestellten Dokumentenabschnitte als Grundlage deiner Antwort.
-2. Fasse die relevanten Informationen aus den Dokumenten zusammen und beantworte
-   die Frage des Patienten verständlich — auch wenn die Frage nicht wörtlich
-   im Dokument steht. Schlussfolgerungen aus dem Kontext sind erlaubt.
-3. Erfinde KEINE Fakten, Medikamente, Dosierungen oder Diagnosen die nicht
-   aus den Dokumenten ableitbar sind.
-4. Wenn die Dokumente wirklich keine relevanten Informationen enthalten, sage:
-   "Dazu habe ich leider keine Information in meinen Unterlagen."
-5. Bei Notfallsymptomen (Brustschmerz, Lähmung, starke Atemnot) weise auf
-   den Notruf 112 hin.
-6. Schließe jede Antwort mit dem Hinweis ab, dass ein Arzt konsultiert
-   werden sollte für eine persönliche Diagnose.
-
-Antworte auf Deutsch, einfühlsam und klar verständlich — auch für Nicht-Mediziner."""
+# Antworte auf Deutsch, einfühlsam und klar verständlich — auch für Nicht-Mediziner."""
 
 
 @dataclass
@@ -63,7 +63,7 @@ class RAGQuery:
         self.collection = self.chroma.get_or_create_collection(collection_name)
 
 
-    def query(self, question: str, session_id: Optional[str] = None) -> RAGResponse:
+    def query(self, question: str, conversation_history: list[dict] | None = None, session_id: Optional[str] = None) -> RAGResponse:
         """
         Full RAG pipeline: embed → retrieve → generate.
         Returns a RAGResponse with answer + sources.
@@ -83,7 +83,7 @@ class RAGQuery:
         relevant = [
             (doc, meta, dist)
             for doc, meta, dist in zip(docs, metadatas, distances)
-            if dist < 0.7
+            if dist < 0.85
         ]
 
         if not relevant:
@@ -109,7 +109,7 @@ class RAGQuery:
 
         prompt = self._build_prompt(context, question)
 
-        answer = self._generate(prompt)
+        answer = self._generate(prompt, conversation_history or [])
 
         return RAGResponse(
             answer=answer,
@@ -142,12 +142,13 @@ class RAGQuery:
         )
 
 
-    def _generate(self, prompt: str) -> str:
+    def _generate(self, prompt: str, conversation_history: list[dict]) -> str:
         resp = requests.post(
             f"{self.ollama_url}/api/chat",
             json={
                 "model": self.ollama_model,
                 "stream": False,
+
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user",   "content": prompt},

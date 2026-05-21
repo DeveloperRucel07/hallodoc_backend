@@ -1,15 +1,11 @@
-"""
-database.py — SQLAlchemy engine + session factory.
-Uses SQLite locally, easily swappable to PostgreSQL for production.
-"""
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session as DBSession
 
 from app.core.config import config
-from app.chat.models import Base
+from app.models.models import Base
 
 
-# SQLite for local dev — change DB_URL in config for PostgreSQL in production
 engine = create_engine(
     config.DB_URL,
     connect_args={"check_same_thread": False},  # needed for SQLite + FastAPI
