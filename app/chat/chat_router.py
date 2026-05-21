@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
 
 from app.chat.chat_service import ChatService
-from app.chat.database import get_db
+from app.models.database import get_db
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 service = ChatService()
@@ -13,7 +13,7 @@ service = ChatService()
 
 
 class ChatRequest(BaseModel):
-    user_id: str
+    patient_id: str
     message: str
     session_id: Optional[str] = None   # omit to start a new session
 
@@ -45,7 +45,7 @@ def send_message(req: ChatRequest, db: DBSession = Depends(get_db)):
     try:
         result = service.chat(
             db=db,
-            user_id=req.user_id,
+            patient_id=req.patient_id,
             user_message=req.message,
             session_id=req.session_id,
         )
@@ -54,15 +54,15 @@ def send_message(req: ChatRequest, db: DBSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/sessions/{user_id}", response_model=list[SessionSummary])
-def get_sessions(user_id: str, db: DBSession = Depends(get_db)):
+@router.get("/sessions/{patient_id}", response_model=list[SessionSummary])
+def get_sessions(patient_id: str, db: DBSession = Depends(get_db)):
     """Return all sessions for a user, newest first."""
-    sessions = service.get_user_sessions(db, user_id)
+    sessions = service.get_user_sessions(db, patient_id)
     return [
         SessionSummary(
             session_id=s.id,
             status=s.status,
-            urgency=s.urgency,
+            # urgency=s.urgency,
             created_at=s.created_at.isoformat(),
             message_count=len(s.messages),
         )
@@ -71,9 +71,9 @@ def get_sessions(user_id: str, db: DBSession = Depends(get_db)):
 
 
 @router.get("/session/{session_id}/messages")
-def get_messages(session_id: str, user_id: str, db: DBSession = Depends(get_db)):
+def get_messages(session_id: str, patient_id: str, db: DBSession = Depends(get_db)):
     """Return all messages in a session (for resuming a conversation)."""
-    session = service.get_session(db, session_id, user_id)
+    session = service.get_session(db, session_id, patient_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     return [
