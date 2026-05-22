@@ -1,11 +1,11 @@
 
 from typing import Optional
 from urllib import response
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session as DBSession
 
-from app.auth.auth_service import PatientAuthService, PhysicianAuthService, create_refresh_token, create_access_token
+from app.auth.auth_service import PatientAuthService, PhysicianAuthService, create_refresh_token, create_access_token, decode_token
 from app.models.database import get_db
 from app.core.config import config
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -129,3 +129,47 @@ def login_physician(req: LoginRequest, response: Response, db: DBSession = Depen
         return physician_login
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
+
+
+
+
+ 
+@router.post("/refresh")
+def refresh(request: Request, response: Response):
+    """
+    Use the refresh_token cookie to get a new access_token.
+    Call this when the access_token expires (401 response).
+    """
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Kein Refresh-Token vorhanden.")
+ 
+    payload = decode_token(refresh_token)
+    if not payload or payload.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Refresh-Token ungültig oder abgelaufen.")
+ 
+    # Issue a new access token with same identity
+    token_data = {
+        "sub":         payload["sub"],
+        "role":        payload["role"],
+        "practice_id": payload.get("practice_id"),
+    }
+    new_access = create_access_token(token_data)
+ 
+    response.set_cookie(
+        key="access_token",
+        value=new_access,
+        httponly=True,
+        secure=config.COOKIE_SECURE,
+        samesite=config.COOKIE_SAMESITE,
+        max_age=60 * 60,
+    )
+    return {"message": "Token erneuert.", "access_token": new_access}
+ 
+ 
+@router.post("/logout")
+def logout(response: Response):
+    """Clear both cookies."""
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+    return {"message": "Erfolgreich abgemeldet."}
