@@ -26,12 +26,28 @@ def create_token(data: dict, expires_minutes: int = None) -> str:
     payload["exp"] = expire
     return jwt.encode(payload, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
 
+def create_access_token(data: dict) -> str:
+    payload = data.copy()
+    payload["exp"] = datetime.now(timezone.utc) + timedelta(
+        minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    payload["type"] = "access"
+    return jwt.encode(payload, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
+
+def create_refresh_token(data: dict) -> str:
+    payload = data.copy()
+    payload["exp"] = datetime.now(timezone.utc) + timedelta(days=7)
+    payload["type"] = "refresh"
+    return jwt.encode(payload, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
+
 
 def decode_token(token: str) -> Optional[dict]:
     try:
         return jwt.decode(token, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
     except JWTError:
         return None
+    
+
 
 
 class PatientAuthService:
@@ -87,13 +103,18 @@ class PatientAuthService:
         if not patient or not verify_password(password, patient.hashed_password):
             raise ValueError("E-Mail oder Passwort ist falsch.")
 
-        token = create_token({
+        token = create_access_token({
             "sub": patient.id,
             "role": "patient",
             "practice_id": patient.practice_id,
         })
         return {
             "access_token": token,
+            "refresh_token": create_refresh_token({
+                "sub": patient.id,
+                "role": "patient",
+                "practice_id": patient.practice_id,
+            }),
             "token_type": "bearer",
             "patient_id": patient.id,
             "full_name": patient.full_name,
@@ -147,13 +168,18 @@ class PhysicianAuthService:
         if not physician or not verify_password(password, physician.hashed_password):
             raise ValueError("E-Mail oder Passwort ist falsch.")
 
-        token = create_token({
+        token = create_access_token({
             "sub": physician.id,
             "role": "physician",
             "practice_id": physician.practice_id,
         })
         return {
             "access_token": token,
+            "refresh_token": create_refresh_token({
+                "sub": physician.id,
+                "role": "physician",
+                "practice_id": physician.practice_id,
+            }),
             "token_type": "bearer",
             "physician_id": physician.id,
             "full_name": physician.full_name,

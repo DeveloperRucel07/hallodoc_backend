@@ -6,10 +6,11 @@ class Settings(BaseSettings):
     APP_NAME: str = "HalloDOC Backend"
     API_VERSION: str = "v1"
 
-    JWT_SECRET: str = "SUPER_SECRET_CHANGE_ME"
+    JWT_SECRET: str = "supersecretkey"  #in .env for production
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-
+    COOKIE_SECURE: bool = False 
+    COOKIE_SAMESITE: str = "lax" 
     PRACTICE_CODE: str = "123456"
 
     # Ollama

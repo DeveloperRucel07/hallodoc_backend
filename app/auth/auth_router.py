@@ -1,12 +1,13 @@
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from urllib import response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session as DBSession
 
-from app.auth.auth_service import PatientAuthService, PhysicianAuthService
+from app.auth.auth_service import PatientAuthService, PhysicianAuthService, create_refresh_token, create_access_token
 from app.models.database import get_db
-
+from app.core.config import config
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 patient_auth   = PatientAuthService()
@@ -37,6 +38,28 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+def _set_auth_cookies(response: Response, token_data: dict) -> None:
+    """Set access + refresh tokens as HTTP-only cookies."""
+    access_token  = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
+ 
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=config.COOKIE_SECURE,
+        samesite=config.COOKIE_SAMESITE,
+        max_age=60 * 60,
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=config.COOKIE_SECURE,
+        samesite=config.COOKIE_SAMESITE,
+        max_age=60 * 60 * 24 * 7,   # 7 days in seconds
+    )
+
 
 @router.post("/patient/register", status_code=201)
 def register_patient(req: PatientRegisterRequest, db: DBSession = Depends(get_db)):
@@ -60,9 +83,16 @@ def register_patient(req: PatientRegisterRequest, db: DBSession = Depends(get_db
 
 
 @router.post("/patient/login")
-def login_patient(req: LoginRequest, db: DBSession = Depends(get_db)):
+def login_patient(req: LoginRequest,response: Response, db: DBSession = Depends(get_db)):
     try:
-        return patient_auth.login(db, req.email, req.password)
+        patient_login = patient_auth.login(db, req.email, req.password)
+        _set_auth_cookies(response, {
+            "sub": patient_login["patient_id"],
+            "role": "patient",
+            "practice_id": patient_login["practice_id"],
+        })
+        return patient_login
+
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
 
@@ -88,8 +118,14 @@ def register_physician(req: PhysicianRegisterRequest, db: DBSession = Depends(ge
 
 
 @router.post("/physician/login")
-def login_physician(req: LoginRequest, db: DBSession = Depends(get_db)):
+def login_physician(req: LoginRequest, response: Response, db: DBSession = Depends(get_db)):
     try:
-        return physician_auth.login(db, req.email, req.password)
+        physician_login = physician_auth.login(db, req.email, req.password)
+        _set_auth_cookies(response, {
+            "sub": physician_login["physician_id"],
+            "role": "physician",
+            "practice_id": physician_login["practice_id"],
+        })
+        return physician_login
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
