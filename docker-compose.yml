@@ -1,0 +1,89 @@
+services:
+  backend:
+    build:
+      context: .
+    container_name: hallodoc-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_NAME: HalloDOC Backend
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
+      CHROMA_DB_PATH: /app/data/chroma_db
+      CHROMA_TOKEN: ""
+      PDF_DIR: /app/data/medicines
+      DB_URL: postgresql+psycopg2://hallodoc:${POSTGRES_PASSWORD:-change-me-in-production}@postgres:5432/hallodoc
+      COOKIE_SECURE: "true"
+      COOKIE_SAMESITE: lax
+      OLLAMA_BASE_URL: ${OLLAMA_DOCKER_BASE_URL:-http://host.docker.internal:11434}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - hallodoc
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-16-alpine}
+    container_name: hallodoc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hallodoc
+      POSTGRES_USER: hallodoc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-production}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U hallodoc -d hallodoc
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - hallodoc
+
+  chromadb:
+    image: chromadb/chroma:${CHROMA_VERSION:-1.5.9}
+    container_name: chroma-db
+    restart: unless-stopped
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /chroma/chroma
+      ANONYMIZED_TELEMETRY: "FALSE"
+    volumes:
+      - ./data/chroma_db:/chroma/chroma
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v2/heartbeat', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - hallodoc
+
+networks:
+  hallodoc:
+    driver: bridge
+
+volumes:
+  postgres_data:
