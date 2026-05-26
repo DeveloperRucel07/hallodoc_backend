@@ -8,7 +8,9 @@ from app.models.models import Base
 connect_args = (
     {"check_same_thread": False}
     if config.DB_URL.startswith("sqlite")
-    else {}
+    else {
+        
+    }
 )
 
 engine = create_engine(
