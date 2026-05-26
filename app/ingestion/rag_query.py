@@ -8,26 +8,6 @@ from chromadb.config import Settings
 from app.prompts.system_prompt import system_prompt as SYSTEM_PROMPT
 
 
-# SYSTEM_PROMPT = """Du bist ein medizinischer Assistent für das HalloDOC-System.
-# Deine Aufgabe ist es, Patienten auf Basis medizinischer Leitlinien zu informieren.
-
-# REGELN:
-# 1. Nutze die bereitgestellten Dokumentenabschnitte als Grundlage deiner Antwort.
-# 2. Fasse die relevanten Informationen aus den Dokumenten zusammen und beantworte
-#    die Frage des Patienten verständlich — auch wenn die Frage nicht wörtlich
-#    im Dokument steht. Schlussfolgerungen aus dem Kontext sind erlaubt.
-# 3. Erfinde KEINE Fakten, Medikamente, Dosierungen oder Diagnosen die nicht
-#    aus den Dokumenten ableitbar sind.
-# 4. Wenn die Dokumente wirklich keine relevanten Informationen enthalten, sage:
-#    "Dazu habe ich leider keine Information in meinen Unterlagen."
-# 5. Bei Notfallsymptomen (Brustschmerz, Lähmung, starke Atemnot) weise auf
-#    den Notruf 112 hin.
-# 6. Schließe jede Antwort mit dem Hinweis ab, dass ein Arzt konsultiert
-#    werden sollte für eine persönliche Diagnose.
-
-# Antworte auf Deutsch, einfühlsam und klar verständlich — auch für Nicht-Mediziner."""
-
-
 @dataclass
 class RAGResponse:
     answer: str
@@ -68,6 +48,7 @@ class RAGQuery:
         Full RAG pipeline: embed → retrieve → generate.
         Returns a RAGResponse with answer + sources.
         """
+        history = conversation_history or []
         question_embedding = self._embed(question)
 
         results = self.collection.query(
@@ -89,8 +70,8 @@ class RAGQuery:
         if not relevant:
             return RAGResponse(
                 answer=(
-                    "Diese Information ist in meinen medizinischen Unterlagen "
-                    "nicht vorhanden. Bitte wenden Sie sich an Ihren Arzt."
+                    "Dazu habe ich leider keine passenden Informationen in meinen "
+                    "Unterlagen. Ich empfehle Ihnen, direkt einen Arzt aufzusuchen."
                 ),
                 context_found=False,
             )
@@ -98,7 +79,7 @@ class RAGQuery:
         context_parts = []
         sources = []
         for i, (doc, meta, _) in enumerate(relevant, 1):
-            source = meta.get("source_file") or meta.get("source", "Unbekannt")
+            source = meta.get("source_file") or meta.get("source", "Leitlinie")
             section = meta.get("section", "")
             label = f"[{i}] {source}" + (f" — {section}" if section else "")
             context_parts.append(f"{label}:\n{doc}")
@@ -107,9 +88,9 @@ class RAGQuery:
 
         context = "\n\n".join(context_parts)
 
-        prompt = self._build_prompt(context, question)
+        messages = self._build_messages(history, question, context)
 
-        answer = self._generate(prompt, conversation_history or [])
+        answer = self._generate(messages)
 
         return RAGResponse(
             answer=answer,
@@ -129,30 +110,35 @@ class RAGQuery:
         return resp.json()["embeddings"][0]
 
 
-    def _build_prompt(self, context: str, question: str) -> str:
-        return (
-            f"Hier sind relevante Abschnitte aus medizinischen Leitlinien:\n\n"
+    def _build_messages(self, history: list[dict], context: str, question: str) -> str:
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT}
+        ]
+        messages.extend(history)
+        current_prompt = (
+            f"Relevante Informationen aus den medizinischen Leitlinien:\n\n"
             f"{context}\n\n"
-            f"{'─' * 60}\n\n"
-            f"Patient schreibt: {question}\n\n"
-            f"Beantworte die Frage des Patienten auf Basis der obigen Abschnitte. "
-            f"Fasse die relevanten Informationen zusammen und erkläre sie verständlich. "
-            f"Du darfst aus dem Kontext schlussfolgern — aber keine Fakten erfinden "
-            f"die nicht aus den Abschnitten ableitbar sind."
+            f"{'─' * 50}\n\n"
+            f"Patient: {question}\n\n"
+            f"Beantworte die Frage auf Basis der Leitlinien und des bisherigen "
+            f"Gesprächsverlaufs. Fasse relevante frühere Symptome mit ein."
         )
+        messages.append({"role": "user", "content": current_prompt})
+        return messages
+    
 
-
-    def _generate(self, prompt: str, conversation_history: list[dict]) -> str:
+    def _generate(self, messages: list[dict]) -> str:
         resp = requests.post(
             f"{self.ollama_url}/api/chat",
             json={
-                "model": self.ollama_model,
+                "model":  self.ollama_model,
                 "stream": False,
-
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user",   "content": prompt},
-                ],
+                "options": {
+                    "temperature": 0.2,
+                    "top_p":       0.9,
+                    "num_ctx":     8192,
+                },
+                "messages": messages,
             },
             timeout=120,
         )

@@ -133,6 +133,11 @@ class Session(Base):
         default="active",
         nullable=False,
     )
+    urgency = Column(
+        Enum("none", "routine", "urgent", "emergency", name="urgency_level"),
+        default="none",
+        nullable=False,
+    )
 
     patient = relationship("Patient", back_populates="sessions")
 
