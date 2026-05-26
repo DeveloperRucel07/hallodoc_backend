@@ -6,22 +6,16 @@ class Settings(BaseSettings):
     APP_NAME: str = "HalloDOC Backend"
     API_VERSION: str = "v1"
 
-    JWT_SECRET: str = "supersecretkey"  #in .env for production
+    JWT_SECRET: str = os.getenv("JWT_SECRET")
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     COOKIE_SECURE: bool = False 
     COOKIE_SAMESITE: str = "lax" 
     PRACTICE_CODE: str = "123456"
 
-    # Ollama
-    # Local default → localhost
-    # Docker override in .env → http://host.docker.internal:11434
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "hallodoc:latest"
 
-    # ChromaDB
-    # Local default → localhost (chroma run --path ./data/chroma_db --port 8000)
-    # Docker override in .env → chromadb
     CHROMA_HOST: str = "localhost"
     CHROMA_PORT: int = 8000
     CHROMA_DB_PATH: str = "./data/chroma_db"

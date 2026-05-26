@@ -158,7 +158,8 @@ def send_message_stream(
                     if urgency != "none":
                         session.urgency = urgency
                     if urgency == "emergency":
-                        session.status = "urgent"
+                        session.status = "active"  # Ensure session is active if emergency detected
+                        service._generate_summary(db, session.id)  # Generate summary immediately for emergency
                     db.commit()
 
                     # Send final metadata

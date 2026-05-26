@@ -170,3 +170,25 @@ class Message(Base):
     def __repr__(self):
         preview = self.content[:40].replace("\n", " ")
         return f"<Message [{self.role}] '{preview}...'>"
+    
+
+class SessionSummary(Base):
+    __tablename__ = "session_summaries"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    session_id = Column(String(36), ForeignKey("sessions.id"), nullable=False, unique=True, index=True)
+    summary = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=_now)
+    urgency = Column(
+        Enum("none", "routine", "urgent", "emergency", name="urgency_level"),
+        default="none",
+        nullable=False,
+    )
+    email_sent = Column(Boolean, default=False, nullable=False)
+    session = relationship("Session", back_populates="summary")
+    def __repr__(self):
+        preview = self.summary[:40].replace("\n", " ")
+        return f"<SessionSummary urgency={self.urgency} '{preview}...'>"
+    
+
+

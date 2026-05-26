@@ -5,11 +5,17 @@ from sqlalchemy.orm import sessionmaker, Session as DBSession
 from app.core.config import config
 from app.models.models import Base
 
+connect_args = (
+    {"check_same_thread": False}
+    if config.DB_URL.startswith("sqlite")
+    else {}
+)
 
 engine = create_engine(
     config.DB_URL,
-    connect_args={"check_same_thread": False},  # needed for SQLite + FastAPI
-    echo=False,   # set True to see raw SQL queries during debugging
+    connect_args=connect_args,
+    pool_pre_ping=True,
+    echo=False,  # set True to see raw SQL queries during debugging
 )
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
