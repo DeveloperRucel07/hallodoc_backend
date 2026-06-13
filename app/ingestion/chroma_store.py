@@ -1,14 +1,4 @@
-"""
-chroma_store.py — Store chunks in ChromaDB using Ollama embeddings.
 
-Embedding model: nomic-embed-text
-  - Pulls via: ollama pull nomic-embed-text
-  - 768-dim, good multilingual coverage, works well with German medical text
-  - Alternative: mxbai-embed-large (1024-dim, slower but stronger)
-
-ChromaDB distance metric: cosine
-  - Better than L2 for text embeddings (length-invariant)
-"""
 import os
 import uuid
 from typing import List, Optional

@@ -1,13 +1,4 @@
-"""
-chat_router.py — Protected chat endpoints. Requires valid JWT.
 
-Endpoints:
-    POST /chat/message          — standard request/response
-    POST /chat/message/stream   — streaming (token by token, like Claude)
-    GET  /chat/sessions         — all sessions for logged-in patient
-    GET  /chat/session/{id}/messages — full history of a session
-    POST /chat/session/{id}/close   — close + generate AI summary
-"""
 from typing import Optional
 
 import requests

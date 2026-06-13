@@ -1,15 +1,21 @@
 
+import hashlib
+
 from attrs.filters import include
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session as DBSession
 
 from app.auth.auth_service import decode_token
 from app.models.database import get_db
-from app.models.models import Patient, Physician
+from app.models.models import Patient, Physician, PhysicianInvite, _now
 
 bearer_scheme = HTTPBearer(auto_error=False)
-    
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(
+        token.encode()
+    ).hexdigest()
 
 def _get_payload(
     request: Request,
@@ -101,3 +107,42 @@ def get_current_user(
     elif role == "physician":
         return db.query(Physician).filter(Physician.id == payload["sub"]).first()
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültige Rolle.")
+
+
+def validate_physician_invite(
+    invite_token: str = Query(...),
+    db: DBSession = Depends(get_db),
+) -> PhysicianInvite:
+
+    token_hash = _hash_token(
+        invite_token
+    )
+
+    invite = (
+        db.query(PhysicianInvite)
+        .filter(
+            PhysicianInvite.token_hash
+            == token_hash
+        )
+        .first()
+    )
+
+    if not invite:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid invite",
+        )
+
+    if invite.used_at:
+        raise HTTPException(
+            status_code=403,
+            detail="Invite already used",
+        )
+
+    if invite.expires_at < _now():
+        raise HTTPException(
+            status_code=403,
+            detail="Invite expired",
+        )
+
+    return invite

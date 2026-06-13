@@ -35,11 +35,12 @@ def seed():
                 db=db,
                 email="arzt@hallodoc.de",
                 password="Test1234!",
-                first_name="Maria",
+                first_name="Rucel",
                 last_name="Mustermann",
                 practice_id=practice.id,
-                title="Dr.",
+                title="Prof. Dr.",
                 specialty="Allgemeinmedizin",
+                role="admin",
             )
             print(f"✓ Test physician: {physician.full_name} (arzt@hallodoc.de / Test1234!)")
         except ValueError:
@@ -57,6 +58,7 @@ def seed():
                 practice_code=config.PRACTICE_CODE,
                 date_of_birth="1990-05-15",
                 phone="+49 170 1234567",
+                gender ="male",
             )
             print(f"✓ Test patient: {patient.full_name} (patient@hallodoc.de / Test1234!)")
         except ValueError:
