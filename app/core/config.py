@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "HalloDOC Backend"
     API_VERSION: str = "v1"
 
-    JWT_SECRET: str = os.getenv("JWT_SECRET")
+    JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     COOKIE_SECURE: bool = False 
