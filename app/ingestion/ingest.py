@@ -1,12 +1,4 @@
-"""
-ingest.py — Orchestrate the full Medical RAG ingestion pipeline.
 
-Usage:
-    python ingest.py                    # ingest everything (PDFs + web)
-    python ingest.py --pdfs-only        # only AWMF PDFs
-    python ingest.py --web-only         # only web sources
-    python ingest.py --stats            # just show collection stats
-"""
 import argparse
 import sys
 import time

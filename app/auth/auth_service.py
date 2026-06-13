@@ -62,6 +62,7 @@ class PatientAuthService:
         practice_code: str,
         date_of_birth: Optional[str] = None,
         phone: Optional[str] = None,
+        gender: Optional[str] = None,
     ) -> Patient:
         practice = db.query(Practice).filter(
             Practice.code == practice_code,
@@ -88,6 +89,7 @@ class PatientAuthService:
             last_name=last_name,
             date_of_birth=dob,
             phone=phone,
+            gender=gender,
         )
         db.add(patient)
         db.commit()

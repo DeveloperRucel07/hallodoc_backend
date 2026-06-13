@@ -6,8 +6,10 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session as DBSession
 
 from app.auth.auth_service import PatientAuthService, PhysicianAuthService, create_refresh_token, create_access_token, decode_token
+from app.auth.dependencies import validate_physician_invite
 from app.models.database import get_db
 from app.core.config import config
+from app.models.models import PhysicianInvite, _now
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 patient_auth   = PatientAuthService()
@@ -21,6 +23,7 @@ class PatientRegisterRequest(BaseModel):
     last_name: str
     practice_code: str          # e.g. "123456" from config
     date_of_birth: Optional[str] = None   # "YYYY-MM-DD"
+    gender: Optional[str] = None      # "male", "female", "diverse"
     phone: Optional[str] = None
 
 
@@ -31,6 +34,7 @@ class PhysicianRegisterRequest(BaseModel):
     last_name: str
     practice_id: str
     title: Optional[str] = None       # "Dr.", "Prof. Dr."
+    role: Optional[str] = None        # "physician", "admin", "supervisor"
     specialty: Optional[str] = None   # "Allgemeinmedizin"
 
 
@@ -95,26 +99,56 @@ def login_patient(req: LoginRequest,response: Response, db: DBSession = Depends(
 
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
+    
 
-@router.post("/physician/register", status_code=201)
-def register_physician(req: PhysicianRegisterRequest, db: DBSession = Depends(get_db)):
+@router.post("/physician/register",status_code=201,)
+def register_physician(
+    req: PhysicianRegisterRequest,
+    invite: PhysicianInvite = Depends(validate_physician_invite),
+    db: DBSession = Depends(get_db),
+):
+
+    if (req.email.lower()!= invite.email.lower()):
+        raise HTTPException(status_code=403,detail="Invite email mismatch",)
     try:
+
         physician = physician_auth.register(
             db=db,
             email=req.email,
             password=req.password,
             first_name=req.first_name,
             last_name=req.last_name,
-            practice_id=req.practice_id,
+            practice_id=invite.practice_id,
             title=req.title,
+            role = "physician",
             specialty=req.specialty,
         )
+        invite.used_at = _now()
+
+        db.commit()
+
+        db.refresh(physician)
+
         return {
-            "message": f"Arzt {physician.full_name} erfolgreich registriert.",
+            "message": (
+                f"Arzt "
+                f"{physician.full_name} "
+                f"erfolgreich registriert."
+            ),
             "physician_id": physician.id,
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Registration failed",
+        )
 
 
 @router.post("/physician/login")
