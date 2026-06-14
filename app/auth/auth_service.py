@@ -6,7 +6,7 @@ import bcrypt
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session as DBSession
 
-from app.models.models import Patient, Physician, Practice
+from app.models.models import Patient, Physician, Practice, Role
 from app.core.config import config
 
 
@@ -136,6 +136,7 @@ class PhysicianAuthService:
         practice_id: str,
         title: Optional[str] = None,
         specialty: Optional[str] = None,
+        roles: Optional[list] = None,
     ) -> Physician:
         practice = db.query(Practice).filter(
             Practice.id == practice_id,
@@ -157,6 +158,16 @@ class PhysicianAuthService:
             specialty=specialty,
         )
         db.add(physician)
+        db.flush()  # Flush to get physician.id for role assignment
+        if roles:
+            physician.roles.extend([
+                Role(
+                    name=r.name,
+                    description=r.description
+                )
+                for r in roles
+            ])
+
         db.commit()
         db.refresh(physician)
         return physician
