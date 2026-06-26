@@ -146,3 +146,9 @@ def validate_physician_invite(
         )
 
     return invite
+
+def has_role(physician,role: str) -> bool:
+    return any(
+        r.role == role
+        for r in physician.roles
+    )

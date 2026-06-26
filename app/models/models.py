@@ -48,6 +48,46 @@ class Practice(Base):
         return f"<Practice '{self.name}' code={self.code}>"
 
 
+class Role(Base):
+    __tablename__ = "roles"
+
+    id = Column(
+        String(36),
+        primary_key=True,
+        default=_uuid,
+    )
+    name = Column(
+        Enum(
+            "physician",
+            "admin",
+            "supervisor",
+            name="physician_role",)
+        ,nullable=False,
+    )
+    description = Column(String(255), nullable=True)
+
+    created_at = Column(DateTime(timezone=True),default=_now,)
+    physicians = relationship("Physician",back_populates="roles",secondary="physician_roles")
+
+class PhysicianRole(Base):
+    __tablename__ = "physician_roles"
+
+    physician_id = Column(
+        String(36),
+        ForeignKey("physicians.id",ondelete="CASCADE",),primary_key=True,
+    )
+
+    role_id = Column(
+        String(36),
+        ForeignKey("roles.id", ondelete="CASCADE",),
+        primary_key=True,
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=_now,
+    )
+
 class PhysicianInvite(Base):
     __tablename__ = "physician_invites"
 
@@ -82,12 +122,18 @@ class Physician(Base):
     last_name       = Column(String(100), nullable=False)
     title           = Column(String(50), nullable=True)
     specialty       = Column(String(100), nullable=True)
-    role            = Column(Enum("physician","admin","supervisor",name="physician_role"))
     is_active       = Column(Boolean, default=True, nullable=False)
     created_at      = Column(DateTime(timezone=True), default=_now)
     updated_at      = Column(DateTime(timezone=True), default=_now, onupdate=_now)
     last_login_at   = Column(DateTime(timezone=True), nullable=True)
     is_deleted_at   = Column(DateTime(timezone=True), nullable=True)
+
+    roles = relationship(
+        "Role",
+        secondary="physician_roles",
+        back_populates="physicians",
+        lazy="selectin",
+    )
     patients = relationship("Patient", back_populates="physician")
     practice = relationship("Practice", back_populates="physicians")
 
