@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     CHROMA_TOKEN: str = ""
 
     COLLECTION_NAME: str = "medical_rag_de"
-    EMBEDDING_MODEL: str = "nomic-embed-text"
+    EMBEDDING_MODEL: str = "nomic-embed-text-v2-moe"
 
     CHUNK_SIZE: int = 200
     CHUNK_OVERLAP: int = 25
